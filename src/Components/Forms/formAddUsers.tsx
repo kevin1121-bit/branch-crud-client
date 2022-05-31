@@ -9,31 +9,14 @@ import {
 } from "@mui/material";
 import { useFormik } from "formik";
 import * as yup from "yup";
-import { gql, useMutation } from "@apollo/client";
-import { IDataUsers, IResponse } from "../../InterfaceGlobals/globalsInterface";
-import Alert, { IAlert } from "../Alert/alert";
+import { IDataUsers } from "../../InterfaceGlobals/globalsInterface";
+import Alert from "../Alert/alert";
 import { makeStyles } from "@mui/styles";
-import { useNavigate } from "react-router-dom";
 //@ts-ignore
 import noImage from "../../assets/Image/imageNo.jpg";
+import useAddUser from "../../hooks/useAddUser";
 
-const CREATE_USER = gql`
-  mutation CreateUser($input: SavePersonInput!) {
-    createUser(input: $input) {
-      status
-      message
-    }
-  }
-`;
 
-const MODIFIED_USER = gql`
-  mutation ModifiedUser($input: ModifiedUserInput!) {
-    modifiedUser(input: $input) {
-      status
-      message
-    }
-  }
-`;
 
 interface IValuesForm {
   username: string;
@@ -43,34 +26,11 @@ interface IValuesForm {
   image?: any;
 }
 
-const initialState: IAlert = {
-  open: false,
-  message: "",
-  severty: undefined,
-};
-
-type IActionType = {
-  type: "CHANGE_ALERT";
-  payload: IAlert;
-};
-
 interface IProps {
   onEdit: boolean;
   valuesForm?: IDataUsers;
 }
 
-const reducerAlert = (state: IAlert, action: IActionType) => {
-  if (action.type === "CHANGE_ALERT") {
-    return {
-      ...state,
-      open: action.payload.open,
-      message: action.payload.message,
-      severty: action.payload.severty,
-    };
-  } else {
-    return state;
-  }
-};
 
 const useStyles = makeStyles({
   textField: {
@@ -93,180 +53,32 @@ const validationSchema = yup.object().shape({
 });
 
 function FormAddUsers(props: IProps) {
-  const navigate = useNavigate();
   const { valuesForm, onEdit } = props;
-  const [imageSelected, setImageSelected] = useState<any>();
   const clasess = useStyles();
-  const [preview, setPreview] = useState<any>();
-  const [alertState, dispatch] = useReducer(reducerAlert, initialState);
+
+
+  const addUser = useAddUser();
   const formik = useFormik({
     initialValues: onEdit
       ? {
-          username: valuesForm?.username || "",
-          password: valuesForm?.password || "",
-          firstName: valuesForm?.firstName || "",
-          lastName: valuesForm?.lastName || "",
-        }
+        username: valuesForm?.username || "",
+        password: valuesForm?.password || "",
+        firstName: valuesForm?.firstName || "",
+        lastName: valuesForm?.lastName || "",
+      }
       : {
-          username: "",
-          password: "",
-          firstName: "",
-          lastName: "",
-        },
+        username: "",
+        password: "",
+        firstName: "",
+        lastName: "",
+      },
     validationSchema: validationSchema,
     onSubmit: (values: IValuesForm) => {
-      handleSubmitForm(values);
+      addUser.handleSubmitForm(values, onEdit);
     },
   });
-  const [userCreate, { reset, loading }] = useMutation<
-    { createUser: IResponse },
-    {
-      input: IValuesForm;
-    }
-  >(CREATE_USER);
 
-  const [userModified, { reset: reset2, loading: loading2 }] = useMutation<
-    { modifiedUser: IResponse },
-    { input: IValuesForm }
-  >(MODIFIED_USER);
 
-  const handleSubmitForm = (values: IValuesForm) => {
-    if (!onEdit) {
-      const input: IValuesForm = {
-        ...values,
-        image: imageSelected,
-      };
-      userCreate({ variables: { input: input } })
-        .then((res) => {
-          if (res.data?.createUser.status) {
-            dispatch({
-              type: "CHANGE_ALERT",
-              payload: {
-                open: true,
-                message: "User added successfully",
-                severty: "success",
-              },
-            });
-            setTimeout(() => {
-              navigate("/");
-            }, 2000);
-          } else if (res.data?.createUser) {
-            dispatch({
-              type: "CHANGE_ALERT",
-              payload: {
-                open: true,
-                message: res.data?.createUser.message,
-                severty: "error",
-              },
-            });
-            reset();
-          } else {
-            dispatch({
-              type: "CHANGE_ALERT",
-              payload: {
-                open: true,
-                message: "Error, try again later",
-                severty: "error",
-              },
-            });
-            reset();
-          }
-        })
-        .catch((err) => {
-          console.log(err.message);
-          dispatch({
-            type: "CHANGE_ALERT",
-            payload: {
-              open: true,
-              message: "Error, try again later",
-              severty: "error",
-            },
-          });
-          reset();
-        });
-    } else if (valuesForm) {
-      const input: any = {
-        ...values,
-      };
-      userModified({ variables: { input: input } })
-        .then((response) => {
-          if (response.data?.modifiedUser.status) {
-            dispatch({
-              type: "CHANGE_ALERT",
-              payload: {
-                open: true,
-                message: "user modified successfully",
-                severty: "success",
-              },
-            });
-          } else if (response.data?.modifiedUser) {
-            dispatch({
-              type: "CHANGE_ALERT",
-              payload: {
-                open: true,
-                message: response.data?.modifiedUser.message,
-                severty: "error",
-              },
-            });
-            reset2();
-          } else {
-            dispatch({
-              type: "CHANGE_ALERT",
-              payload: {
-                open: true,
-                message: "Error, try again later",
-                severty: "error",
-              },
-            });
-            reset2();
-          }
-        })
-        .catch(() => {
-          dispatch({
-            type: "CHANGE_ALERT",
-            payload: {
-              open: true,
-              message: "Error, try again later",
-              severty: "error",
-            },
-          });
-          reset2();
-        });
-    }
-  };
-
-  const handleCloseAlert = () => {
-    dispatch({
-      type: "CHANGE_ALERT",
-      payload: { open: false, message: "", severty: undefined },
-    });
-  };
-
-  const handleChangeFile = (event: ChangeEvent<HTMLInputElement>) => {
-    if (!event.target.files || event.target.files.length === 0) {
-      setImageSelected("");
-      return;
-    }
-    setImageSelected(event.target.files[0]);
-  };
-
-  useEffect(() => {
-    let objUrl: any;
-    if (!imageSelected) {
-      setPreview(undefined);
-      URL.revokeObjectURL(objUrl);
-      return;
-    }
-
-    objUrl = URL.createObjectURL(imageSelected);
-    setPreview(objUrl);
-
-    return () => URL.revokeObjectURL(objUrl);
-  }, [imageSelected]);
-
-  const handleRemoveImage = () => {
-    setImageSelected("");
-  };
 
   return (
     <>
@@ -344,7 +156,7 @@ function FormAddUsers(props: IProps) {
                 justifyContent: "center",
               }}>
               <img
-                src={preview || noImage}
+                src={addUser.preview || noImage}
                 width={200}
                 height={200}
                 alt=''
@@ -355,7 +167,7 @@ function FormAddUsers(props: IProps) {
                   accept='image/*'
                   id='contained-button-file'
                   type='file'
-                  onChange={handleChangeFile}
+                  onChange={addUser.handleChangeFile}
                   style={{ display: "none" }}
                 />
                 <label htmlFor='contained-button-file'>
@@ -365,15 +177,15 @@ function FormAddUsers(props: IProps) {
                 </label>
                 <Button
                   variant='contained'
-                  onClick={handleRemoveImage}
+                  onClick={addUser.handleRemoveImage}
                   sx={{ ml: 3 }}>
                   Remove
                 </Button>
               </div>
             </Grid>
             <Grid item xs={12} sx={{ textAlign: "center" }}>
-              <Button type='submit' disabled={loading} variant='outlined'>
-                {loading || loading2 ? (
+              <Button type='submit' disabled={addUser.loading} variant='outlined'>
+                {addUser.loading || addUser.loading2 ? (
                   <Box display='flex'>
                     <CircularProgress color='success' size={35} />
                   </Box>
@@ -386,10 +198,10 @@ function FormAddUsers(props: IProps) {
         </form>
       </Container>
       <Alert
-        open={alertState.open}
-        message={alertState.message}
-        severty={alertState.severty}
-        onClose={handleCloseAlert}
+        open={addUser.alertState.open}
+        message={addUser.alertState.message}
+        severty={addUser.alertState.severty}
+        onClose={addUser.handleCloseAlert}
       />
     </>
   );
